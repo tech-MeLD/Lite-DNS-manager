@@ -31,7 +31,13 @@ struct AliDnsDomain {
     #[serde(rename = "CreateTime")]
     create_time: Option<String>,
     #[serde(rename = "DnsServers")]
-    dns_servers: Option<Vec<String>>,
+    dns_servers: Option<AliDnsServers>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AliDnsServers {
+    #[serde(rename = "DnsServer")]
+    dns_server: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -116,6 +122,55 @@ impl AliDnsProvider {
         })
     }
 
+    /// Parse an AliDNS API response, handling the Alibaba Cloud convention
+    /// of returning errors as HTTP 200 with error codes in the JSON body.
+    async fn parse_response<T: serde::de::DeserializeOwned>(
+        &self,
+        response: reqwest::Response,
+        context: &str,
+    ) -> Result<T, ProviderError> {
+        let status = response.status();
+        let body_text = response.text().await.map_err(|e| {
+            ProviderError::Network(format!("Failed to read AliDNS response body: {}", e))
+        })?;
+
+        // Try error format first — Alibaba Cloud returns errors as HTTP 200
+        if let Ok(err_body) = serde_json::from_str::<AliDnsErrorResponse>(&body_text) {
+            if err_body.code.is_some() || err_body.message.is_some() {
+                let code = err_body.code.unwrap_or_default();
+                let message = err_body.message.unwrap_or_else(|| {
+                    if status.is_success() {
+                        format!("Unknown AliDNS error (HTTP {})", status.as_u16())
+                    } else {
+                        format!("AliDNS HTTP {}", status.as_u16())
+                    }
+                });
+                return Err(ProviderError::AliDns { code, message });
+            }
+        }
+
+        // If HTTP error but no JSON error body parsed
+        if !status.is_success() {
+            return Err(ProviderError::AliDns {
+                code: status.as_u16().to_string(),
+                message: body_text,
+            });
+        }
+
+        // Parse as expected success type
+        serde_json::from_str::<T>(&body_text).map_err(|e| {
+            // Truncate body to avoid huge log messages
+            let preview = if body_text.len() > 500 {
+                format!("{}...", &body_text[..500])
+            } else {
+                body_text
+            };
+            ProviderError::Deserialization(format!(
+                "AliDNS {} parse error: {}. Body: {}", context, e, preview
+            ))
+        })
+    }
+
     fn sign(&self, params: &BTreeMap<String, String>) -> Result<String, ProviderError> {
         let canonicalized = params
             .iter()
@@ -192,23 +247,8 @@ impl AliDnsProvider {
 impl DnsProvider for AliDnsProvider {
     async fn list_domains(&self) -> Result<Vec<Domain>, ProviderError> {
         let url = self.build_url("DescribeDomains", BTreeMap::new())?;
-
         let response = self.client.get(&url).send().await?;
-        let status = response.status();
-
-        if !status.is_success() {
-            let err_body: AliDnsErrorResponse = response.json().await.map_err(|e| {
-                ProviderError::Deserialization(format!("AliDNS error parse: {}", e))
-            })?;
-            return Err(ProviderError::AliDns {
-                code: err_body.code.unwrap_or_default(),
-                message: err_body.message.unwrap_or_default(),
-            });
-        }
-
-        let list_response: AliDnsDomainListResponse = response.json().await.map_err(|e| {
-            ProviderError::Deserialization(format!("AliDNS response parse: {}", e))
-        })?;
+        let list_response: AliDnsDomainListResponse = self.parse_response(response, "list_domains").await?;
 
         let domains = list_response
             .domains
@@ -224,7 +264,7 @@ impl DnsProvider for AliDnsProvider {
                 created_on: d.create_time.and_then(|t| {
                     chrono::DateTime::parse_from_rfc3339(&t).ok().map(|dt| dt.with_timezone(&chrono::Utc))
                 }),
-                name_servers: d.dns_servers.unwrap_or_default(),
+                name_servers: d.dns_servers.map(|s| s.dns_server).unwrap_or_default(),
             })
             .collect();
 
@@ -237,14 +277,7 @@ impl DnsProvider for AliDnsProvider {
         let url = self.build_url("DescribeDomain", params)?;
 
         let response = self.client.get(&url).send().await?;
-
-        if !response.status().is_success() {
-            return Err(ProviderError::NotFound("Domain not found".to_string()));
-        }
-
-        let list_response: AliDnsDomainListResponse = response.json().await.map_err(|e| {
-            ProviderError::Deserialization(format!("AliDNS response parse: {}", e))
-        })?;
+        let list_response: AliDnsDomainListResponse = self.parse_response(response, "get_domain").await?;
 
         let domain = list_response
             .domains
@@ -263,7 +296,7 @@ impl DnsProvider for AliDnsProvider {
             created_on: domain.create_time.and_then(|t| {
                 chrono::DateTime::parse_from_rfc3339(&t).ok().map(|dt| dt.with_timezone(&chrono::Utc))
             }),
-            name_servers: domain.dns_servers.unwrap_or_default(),
+            name_servers: domain.dns_servers.map(|s| s.dns_server).unwrap_or_default(),
         })
     }
 
@@ -273,14 +306,7 @@ impl DnsProvider for AliDnsProvider {
         let url = self.build_url("DescribeDomainRecords", params)?;
 
         let response = self.client.get(&url).send().await?;
-
-        if !response.status().is_success() {
-            return Err(ProviderError::NotFound("Domain not found".to_string()));
-        }
-
-        let list_response: AliDnsRecordListResponse = response.json().await.map_err(|e| {
-            ProviderError::Deserialization(format!("AliDNS response parse: {}", e))
-        })?;
+        let list_response: AliDnsRecordListResponse = self.parse_response(response, "list_records").await?;
 
         let records = list_response
             .domain_records
@@ -325,14 +351,7 @@ impl DnsProvider for AliDnsProvider {
         let url = self.build_url("AddDomainRecord", params)?;
 
         let response = self.client.get(&url).send().await?;
-
-        if !response.status().is_success() {
-            return Err(ProviderError::BadRequest("Failed to create record".to_string()));
-        }
-
-        let create_resp: AliDnsCreateResponse = response.json().await.map_err(|e| {
-            ProviderError::Deserialization(format!("AliDNS response parse: {}", e))
-        })?;
+        let create_resp: AliDnsCreateResponse = self.parse_response(response, "create_record").await?;
 
         Ok(DnsRecord {
             id: create_resp.record_id,
@@ -378,10 +397,7 @@ impl DnsProvider for AliDnsProvider {
 
         let url = self.build_url("UpdateDomainRecord", params)?;
         let response = self.client.get(&url).send().await?;
-
-        if !response.status().is_success() {
-            return Err(ProviderError::NotFound("Record not found".to_string()));
-        }
+        let _update_resp: AliDnsCreateResponse = self.parse_response(response, "update_record").await?;
 
         Ok(DnsRecord {
             id: record_id.to_string(),
@@ -411,10 +427,7 @@ impl DnsProvider for AliDnsProvider {
 
         let url = self.build_url("DeleteDomainRecord", params)?;
         let response = self.client.get(&url).send().await?;
-
-        if !response.status().is_success() {
-            return Err(ProviderError::NotFound("Record not found".to_string()));
-        }
+        let _: serde_json::Value = self.parse_response(response, "delete_record").await?;
 
         Ok(())
     }
@@ -431,14 +444,7 @@ impl DnsProvider for AliDnsProvider {
 
         let url = self.build_url("DescribeDomainRecords", params)?;
         let response = self.client.get(&url).send().await?;
-
-        if !response.status().is_success() {
-            return Ok(vec![]);
-        }
-
-        let list_response: AliDnsRecordListResponse = response.json().await.map_err(|e| {
-            ProviderError::Deserialization(format!("AliDNS response parse: {}", e))
-        })?;
+        let list_response: AliDnsRecordListResponse = self.parse_response(response, "search_records").await?;
 
         let records = list_response
             .domain_records
