@@ -2,7 +2,7 @@
 
 > 基于 Tauri 2.x 构建的 Windows 桌面应用，通过 API 聚合统一管理 **DNSPod**、**Cloudflare** 和 **阿里云 AliDNS** 上的域名与 DNS 记录。
 
-![1780460891081](image/README/1780460891081.png)
+![1780461061745](image/README/1780461061745.png)
 
 ---
 
