@@ -2,6 +2,8 @@
 
 > 基于 Tauri 2.x 构建的 Windows 桌面应用，通过 API 聚合统一管理 **DNSPod**、**Cloudflare** 和 **阿里云 AliDNS** 上的域名与 DNS 记录。
 
+![1780460891081](image/README/1780460891081.png)
+
 ---
 
 ## 特性
@@ -17,18 +19,18 @@
 
 ## 技术栈
 
-| 层级 | 技术 | 说明 |
-|------|------|------|
-| **桌面框架** | [Tauri 2.x](https://v2.tauri.app/) | Rust 后端 + WebView 前端 |
-| **前端语言** | TypeScript 5 | 类型安全的 IPC 通信 |
-| **UI 框架** | React 18 + [React Router](https://reactrouter.com/) v7 | SPA 路由 |
-| **样式方案** | [Tailwind CSS](https://tailwindcss.com/) v4 + Radix UI 组件 | 深色/浅色主题 |
-| **图标库** | [Lucide React](https://lucide.dev/) | 一致性图标集 |
-| **后端语言** | Rust (edition 2021, MSRV 1.77.2) | Tauri 原生后端 |
-| **异步运行时** | [tokio](https://tokio.rs/) | 并发 HTTP + IPC 处理 |
-| **HTTP 客户端** | [reqwest](https://docs.rs/reqwest/) 0.12 | 原生 TLS + JSON 自动序列化 |
-| **凭据存储** | [keyring](https://crates.io/crates/keyring) v3 | Windows Credential Manager 安全存储 |
-| **API 签名** | hmac + sha2 + sha1 + base64 | DNSPod TC3-HMAC-SHA256 / AliDNS HMAC-SHA1 |
+| 层级                  | 技术                                                     | 说明                                      |
+| --------------------- | -------------------------------------------------------- | ----------------------------------------- |
+| **桌面框架**    | [Tauri 2.x](https://v2.tauri.app/)                          | Rust 后端 + WebView 前端                  |
+| **前端语言**    | TypeScript 5                                             | 类型安全的 IPC 通信                       |
+| **UI 框架**     | React 18 +[React Router](https://reactrouter.com/) v7       | SPA 路由                                  |
+| **样式方案**    | [Tailwind CSS](https://tailwindcss.com/) v4 + Radix UI 组件 | 深色/浅色主题                             |
+| **图标库**      | [Lucide React](https://lucide.dev/)                         | 一致性图标集                              |
+| **后端语言**    | Rust (edition 2021, MSRV 1.77.2)                         | Tauri 原生后端                            |
+| **异步运行时**  | [tokio](https://tokio.rs/)                                  | 并发 HTTP + IPC 处理                      |
+| **HTTP 客户端** | [reqwest](https://docs.rs/reqwest/) 0.12                    | 原生 TLS + JSON 自动序列化                |
+| **凭据存储**    | [keyring](https://crates.io/crates/keyring) v3              | Windows Credential Manager 安全存储       |
+| **API 签名**    | hmac + sha2 + sha1 + base64                              | DNSPod TC3-HMAC-SHA256 / AliDNS HMAC-SHA1 |
 
 ## 系统要求
 
@@ -168,14 +170,14 @@ Rust Command Handler
 
 ### 安全设计
 
-| 安全特性 | 实现 |
-|---------|------|
+| 安全特性 | 实现                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------ |
 | 凭据隔离 | 秘密数据仅存在于 Rust 后端内存，**前端只获取 metadata** (id + label + provider_type) |
-| 存储加密 | Windows 凭据管理器使用 DPAPI 加密，绑定当前用户 |
-| 日志安全 | `CredentialSecretData` Debug 实现完全遮盖敏感字段 |
-| 传输加密 | 所有 API 调用强制 HTTPS (reqwest 默认 TLS 验证) |
-| 独立存储 | 每条凭据单独存储（target: `dns-manager/{uuid}`），元数据与秘密分离 |
-| CSP 限制 | `default-src 'self'`，禁止外部资源加载 |
+| 存储加密 | Windows 凭据管理器使用 DPAPI 加密，绑定当前用户                                            |
+| 日志安全 | `CredentialSecretData` Debug 实现完全遮盖敏感字段                                        |
+| 传输加密 | 所有 API 调用强制 HTTPS (reqwest 默认 TLS 验证)                                            |
+| 独立存储 | 每条凭据单独存储（target:`dns-manager/{uuid}`），元数据与秘密分离                        |
+| CSP 限制 | `default-src 'self'`，禁止外部资源加载                                                   |
 
 ### Provider 抽象
 
@@ -195,11 +197,11 @@ pub trait DnsProvider: Send + Sync {
 }
 ```
 
-| 提供商 | API 端点 | 认证方式 |
-|--------|---------|----------|
-| **Cloudflare** | `api.cloudflare.com/client/v4` | Bearer API Token |
-| **DNSPod** | `dnspod.tencentcloudapi.com` | TC3-HMAC-SHA256 签名 (SecretId + SecretKey) |
-| **阿里云 AliDNS** | `alidns.aliyuncs.com` | HMAC-SHA1 签名 (AccessKey ID + Secret) |
+| 提供商                  | API 端点                         | 认证方式                                    |
+| ----------------------- | -------------------------------- | ------------------------------------------- |
+| **Cloudflare**    | `api.cloudflare.com/client/v4` | Bearer API Token                            |
+| **DNSPod**        | `dnspod.tencentcloudapi.com`   | TC3-HMAC-SHA256 签名 (SecretId + SecretKey) |
+| **阿里云 AliDNS** | `alidns.aliyuncs.com`          | HMAC-SHA1 签名 (AccessKey ID + Secret)      |
 
 ## 使用指南
 
@@ -208,11 +210,11 @@ pub trait DnsProvider: Send + Sync {
 1. 进入 **Credentials** 页面，点击 **Add Credential**
 2. 选择提供商，填写 Label 和对应的 API 凭据：
 
-| 提供商 | 所需凭据 | 获取方式 |
-|--------|---------|---------|
-| Cloudflare | API Token | [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens) → Create Token → DNS:Edit |
-| DNSPod | SecretId + SecretKey | [腾讯云控制台](https://console.cloud.tencent.com/cam/capi) → API 密钥管理 |
-| AliDNS | AccessKey ID + AccessKey Secret | [阿里云 RAM](https://ram.console.aliyun.com/manage/ak) → 创建 AccessKey |
+| 提供商     | 所需凭据                        | 获取方式                                                                                        |
+| ---------- | ------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Cloudflare | API Token                       | [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens) → Create Token → DNS:Edit |
+| DNSPod     | SecretId + SecretKey            | [腾讯云控制台](https://console.cloud.tencent.com/cam/capi) → API 密钥管理                         |
+| AliDNS     | AccessKey ID + AccessKey Secret | [阿里云 RAM](https://ram.console.aliyun.com/manage/ak) → 创建 AccessKey                           |
 
 3. 保存后点击 **Test** 验证连接
 
@@ -239,21 +241,21 @@ pub trait DnsProvider: Send + Sync {
 
 前端通过 IPC 调用的 14 个 Rust 命令：
 
-| 命令 | 参数 | 返回值 | 说明 |
-|------|------|--------|------|
-| `get_credentials` | — | `Vec<ProviderCredential>` | 获取凭据列表（无秘密） |
-| `save_credential` | `CredentialInput` | `ProviderCredential` | 保存凭据（秘密存入 Keychain） |
-| `delete_credential` | `Uuid` | `()` | 删除凭据 |
-| `test_credential` | `Uuid` | `bool` | 测试凭据连接 |
-| `list_domains` | `Option<Vec<ProviderType>>` | `Vec<Domain>` | 跨提供商域名列表 |
-| `get_domain` | `ProviderType, String` | `Domain` | 单域名详情 |
-| `get_domain_summary` | — | `DomainSummary` | 域名数量统计 |
-| `list_records` | `ProviderType, String` | `Vec<DnsRecord>` | DNS 记录列表 |
-| `create_record` | `ProviderType, String, CreateRecordRequest` | `DnsRecord` | 创建记录 |
-| `update_record` | `ProviderType, String, String, UpdateRecordRequest` | `DnsRecord` | 更新记录 |
-| `delete_record` | `ProviderType, String, String` | `()` | 删除记录 |
-| `search_records` | `SearchQuery` | `Vec<SearchResult>` | 跨提供商搜索 |
-| `export_zone` | `ProviderType, String` | `String` | 导出 zone 文件 |
+| 命令                   | 参数                                                  | 返回值                      | 说明                          |
+| ---------------------- | ----------------------------------------------------- | --------------------------- | ----------------------------- |
+| `get_credentials`    | —                                                    | `Vec<ProviderCredential>` | 获取凭据列表（无秘密）        |
+| `save_credential`    | `CredentialInput`                                   | `ProviderCredential`      | 保存凭据（秘密存入 Keychain） |
+| `delete_credential`  | `Uuid`                                              | `()`                      | 删除凭据                      |
+| `test_credential`    | `Uuid`                                              | `bool`                    | 测试凭据连接                  |
+| `list_domains`       | `Option<Vec<ProviderType>>`                         | `Vec<Domain>`             | 跨提供商域名列表              |
+| `get_domain`         | `ProviderType, String`                              | `Domain`                  | 单域名详情                    |
+| `get_domain_summary` | —                                                    | `DomainSummary`           | 域名数量统计                  |
+| `list_records`       | `ProviderType, String`                              | `Vec<DnsRecord>`          | DNS 记录列表                  |
+| `create_record`      | `ProviderType, String, CreateRecordRequest`         | `DnsRecord`               | 创建记录                      |
+| `update_record`      | `ProviderType, String, String, UpdateRecordRequest` | `DnsRecord`               | 更新记录                      |
+| `delete_record`      | `ProviderType, String, String`                      | `()`                      | 删除记录                      |
+| `search_records`     | `SearchQuery`                                       | `Vec<SearchResult>`       | 跨提供商搜索                  |
+| `export_zone`        | `ProviderType, String`                              | `String`                  | 导出 zone 文件                |
 
 ## 许可证
 
